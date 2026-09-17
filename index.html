@@ -291,12 +291,15 @@ $('#lyrEdit').onclick=()=>editLyrics();
 
 function editLyrics(){
   const s=curSong;if(!s)return;
-  const qs=encodeURIComponent(`${s.title} ${s.artist}`);
+  const clean=v=>String(v||'').replace(/\s*[\(（\[【].*?[\)）\]】]\s*/g,' ').trim();
+  const jl=(t,a)=>`https://j-lyric.net/index.php?kt=${encodeURIComponent(t)}&ct=2&ka=${encodeURIComponent(a)}&ca=2&kl=&cl=2`;
   openSheet(`<h2>歌詞の登録</h2>
-    <div class="status">正規の歌詞サイトで歌詞をコピーし、下に貼り付けて保存します。保存先はこの端末内だけです。</div>
+    <div class="status">J-Lyric.netで歌詞を開いてコピーし、下に貼り付けて保存します。保存先はこの端末内だけです。歌詞を人に送ったり公開したりしないでください。</div>
     <div class="row">
-      <a class="btn" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="https://www.google.com/search?q=${encodeURIComponent('site:uta-net.com '+s.title+' '+s.artist)}">歌ネットで探す</a>
-      <a class="btn" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="https://www.google.com/search?q=${qs}+%E6%AD%8C%E8%A9%9E">歌詞を検索</a>
+      <a class="btn primary" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="${esc(jl(clean(s.title),clean(s.artist)))}">J-Lyricで探す</a>
+    </div>
+    <div class="row">
+      <a class="btn" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="${esc(jl(clean(s.title),''))}">曲名だけで探す</a>
     </div>
     <div class="row"><button class="btn" id="paste">クリップボードから貼り付け</button></div>
     <textarea id="lyrIn" placeholder="ここに歌詞を貼り付け">${esc(s.lyrics)}</textarea>
