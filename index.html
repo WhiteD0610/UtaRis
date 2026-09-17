@@ -203,16 +203,37 @@ function songMenu(id){
 }
 
 /* ---------- 曲検索（iTunes Search API / JSONP・キー不要） ---------- */
-function itunes(term){
+function jsonp(url,param='callback',ms=15000){
   return new Promise((res,rej)=>{
-    const cb='itcb'+uid();const sc=document.createElement('script');
-    const timer=setTimeout(()=>{cleanup();rej(new Error('timeout'))},10000);
-    function cleanup(){clearTimeout(timer);delete window[cb];sc.remove()}
-    window[cb]=d=>{cleanup();res(d.results||[])};
+    const cb='cb'+uid();const sc=document.createElement('script');
+    const timer=setTimeout(()=>{cleanup();rej(new Error('timeout'))},ms);
+    function cleanup(){clearTimeout(timer);window[cb]=()=>{};sc.remove()}
+    window[cb]=d=>{cleanup();res(d)};
     sc.onerror=()=>{cleanup();rej(new Error('network'))};
-    sc.src=`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&country=JP&lang=ja_jp&media=music&entity=song&limit=25&callback=${cb}`;
+    sc.src=url+(url.includes('?')?'&':'?')+param+'='+cb;
     document.body.appendChild(sc);
   });
+}
+async function getJSON(url,ms=15000){
+  const ac=new AbortController();const t=setTimeout(()=>ac.abort(),ms);
+  try{const r=await fetch(url,{signal:ac.signal});if(!r.ok)throw new Error('HTTP '+r.status);return await r.json()}
+  finally{clearTimeout(t)}
+}
+const mapIT=d=>(d.results||[]).map(r=>({title:r.trackName,artist:r.artistName,art:(r.artworkUrl100||'').replace('100x100','200x200')}));
+// 検索元を順番に試す（すべて無料・キー不要）
+const sources=[
+  ['Apple',t=>getJSON(`https://itunes.apple.com/search?term=${encodeURIComponent(t)}&country=JP&media=music&entity=song&limit=25`).then(mapIT)],
+  ['Apple(予備)',t=>jsonp(`https://itunes.apple.com/search?term=${encodeURIComponent(t)}&country=JP&media=music&entity=song&limit=25`).then(mapIT)],
+  ['Deezer',t=>jsonp(`https://api.deezer.com/search?q=${encodeURIComponent(t)}&limit=25&output=jsonp`).then(d=>(d.data||[]).map(r=>({title:r.title,artist:r.artist?.name||'',art:r.album?.cover_medium||''})))],
+  ['MusicBrainz',t=>getJSON(`https://musicbrainz.org/ws/2/recording?query=${encodeURIComponent(t)}&limit=25&fmt=json`).then(d=>(d.recordings||[]).map(r=>({title:r.title,artist:(r['artist-credit']||[]).map(a=>a.name+(a.joinphrase||'')).join(''),art:''})))]
+];
+async function searchSongs(term){
+  const errs=[];
+  for(const [name,fn] of sources){
+    try{const list=(await fn(term)).filter(x=>x.title);if(list.length)return {list,name};errs.push(name+':0件')}
+    catch(e){errs.push(name+':'+e.message)}
+  }
+  const err=new Error(errs.join(' / '));err.empty=errs.every(x=>x.endsWith(':0件'));throw err;
 }
 $('#fab').onclick=()=>{
   const tab=db.tabs[db.cur];
@@ -224,16 +245,19 @@ $('#fab').onclick=()=>{
   const go=async()=>{
     if(!q.value.trim())return;
     res.innerHTML='<div class="status">検索中…</div>';
+    q.blur();
     try{
-      found=await itunes(q.value.trim());
-      res.innerHTML=found.length?found.map((r,i)=>`<div class="song"><button class="meta" data-pick="${i}" style="display:flex;gap:12px;align-items:center">
-        <img src="${esc(r.artworkUrl100)}" alt="" loading="lazy"><span style="min-width:0"><div class="t">${esc(r.trackName)}</div><div class="a">${esc(r.artistName)}</div></span></button></div>`).join('')
-        :'<div class="status">該当する曲がありません。言葉を変えるか手入力で追加してください。</div>';
-    }catch(e){res.innerHTML='<div class="status">検索できませんでした。通信状況を確認して、少し待ってから再度お試しください（検索は1分に約20回まで）。</div>'}
+      const r=await searchSongs(q.value.trim());found=r.list;
+      res.innerHTML=`<div class="status">検索元：${esc(r.name)}</div>`+found.map((s,i)=>`<div class="song"><button class="meta" data-pick="${i}" style="display:flex;gap:12px;align-items:center">
+        ${s.art?`<img src="${esc(s.art)}" alt="" loading="lazy">`:'<div class="noart"></div>'}<span style="min-width:0"><div class="t">${esc(s.title)}</div><div class="a">${esc(s.artist)}</div></span></button></div>`).join('');
+    }catch(e){
+      res.innerHTML=e.empty?'<div class="status">該当する曲がありません。言葉を変えるか手入力で追加してください。</div>'
+        :`<div class="status">検索できませんでした。少し待って再度お試しください。<br><small>詳細：${esc(e.message)}</small></div>`;
+    }
   };
   $('#qGo').onclick=go;q.onkeydown=e=>{if(e.key==='Enter')go()};q.focus();
   res.onclick=e=>{const b=e.target.closest('[data-pick]');if(!b)return;const r=found[+b.dataset.pick];
-    addSong(r.trackName,r.artistName,(r.artworkUrl100||'').replace('100x100','200x200'));b.closest('.song').style.opacity=.4;b.disabled=true;};
+    addSong(r.title,r.artist,r.art);b.closest('.song').style.opacity=.4;b.disabled=true;};
   $('#manual').onclick=()=>{const t=prompt('曲名');if(!t||!t.trim())return;const a=prompt('歌手名（空欄可）')||'';addSong(t.trim(),a.trim(),'');closeSheet()};
 };
 function addSong(title,artist,art){
