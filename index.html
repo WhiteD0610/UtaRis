@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1A1330">
+<title>うたリスト</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#1A1330; --surface:#251B42; --line:#3A2E60;
+  --text:#F3EEFF; --sub:#A99CCB; --pink:#FF5FA2; --cyan:#8FE3FF;
+  --safe-b:env(safe-area-inset-bottom,0px); --safe-t:env(safe-area-inset-top,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+  font-family:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans",sans-serif;overscroll-behavior:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+input,textarea{font:inherit;color:var(--text);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;width:100%}
+#app{display:flex;flex-direction:column;height:100%}
+header{padding:calc(var(--safe-t) + 12px) 18px 8px;display:flex;align-items:center;justify-content:space-between}
+header h1{margin:0;font-size:26px;font-weight:800;letter-spacing:.02em}
+header h1 span{color:var(--pink)}
+.icon-btn{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:var(--sub)}
+#pages{flex:1;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+#pages::-webkit-scrollbar{display:none}
+.page{flex:0 0 100%;scroll-snap-align:start;overflow-y:auto;padding:4px 14px 110px}
+.page-title{font-size:15px;color:var(--sub);margin:6px 4px 10px}
+.song{display:flex;align-items:center;gap:12px;padding:10px;border-radius:14px}
+.song:active{background:var(--surface)}
+.song img,.song .noart{width:52px;height:52px;border-radius:10px;flex:none;background:var(--line);object-fit:cover}
+.song .meta{flex:1;min-width:0;text-align:left}
+.song .t{font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.song .a{font-size:13px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.song .badge{font-size:11px;color:var(--cyan);margin-left:6px}
+.empty{color:var(--sub);text-align:center;padding:60px 20px;line-height:1.8}
+#fab{position:fixed;right:18px;bottom:calc(var(--safe-b) + 78px);height:52px;padding:0 20px;border-radius:26px;
+  background:var(--pink);color:#2A0718;font-weight:800;box-shadow:0 6px 20px rgba(255,95,162,.35)}
+nav{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:8px 10px calc(var(--safe-b) + 8px);
+  background:#150F28;border-top:1px solid var(--line)}
+nav::-webkit-scrollbar{display:none}
+.tab{flex:none;padding:10px 16px;border-radius:20px;color:var(--sub);font-weight:700;white-space:nowrap}
+.tab.on{background:var(--surface);color:var(--text);box-shadow:inset 0 -3px 0 var(--pink)}
+.tab.add{color:var(--cyan)}
+/* sheets */
+.overlay{position:fixed;inset:0;background:rgba(8,5,18,.6);display:none;z-index:10}
+.overlay.show{display:block}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-height:88%;background:var(--bg);border-radius:20px 20px 0 0;
+  padding:14px 16px calc(var(--safe-b) + 18px);overflow-y:auto;transform:translateY(100%);transition:transform .22s ease;z-index:11}
+.sheet.show{transform:none}
+.sheet h2{font-size:18px;margin:4px 0 12px}
+.row{display:flex;gap:8px;margin:8px 0}
+.btn{flex:1;padding:12px;border-radius:12px;background:var(--surface);font-weight:700}
+.btn.primary{background:var(--pink);color:#2A0718}
+.btn.danger{color:#FF7B7B}
+.list-btn{display:block;width:100%;text-align:left;padding:14px 8px;border-bottom:1px solid var(--line)}
+.status{color:var(--sub);font-size:13px;margin:8px 2px}
+/* lyrics view */
+#lyr{position:fixed;inset:0;background:var(--bg);z-index:9;display:none;flex-direction:column}
+#lyr.show{display:flex}
+#lyr .top{padding:calc(var(--safe-t) + 8px) 10px 8px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--line)}
+#lyr .ttl{flex:1;min-width:0}
+#lyr .ttl b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#lyr .ttl small{color:var(--sub)}
+#lyrBody{flex:1;overflow-y:auto;padding:22px 20px calc(var(--safe-b) + 40px)}
+#lyrText{white-space:pre-wrap;line-height:1.9;font-weight:700;margin:0}
+#lyrKey{color:var(--cyan);font-size:14px;margin-bottom:14px}
+.zoom{display:flex;gap:2px}
+.zoom button{width:38px;height:38px;border-radius:10px;background:var(--surface);font-weight:800}
+textarea{min-height:40vh;line-height:1.7;resize:vertical}
+@media (prefers-reduced-motion:reduce){.sheet{transition:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>うた<span>リスト</span></h1>
+    <button class="icon-btn" id="menuBtn" aria-label="設定">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+    </button>
+  </header>
+  <main id="pages"></main>
+  <nav id="tabs"></nav>
+</div>
+<button id="fab">＋ 曲を追加</button>
+
+<!-- 歌詞表示 -->
+<section id="lyr" aria-label="歌詞">
+  <div class="top">
+    <button class="icon-btn" id="lyrBack" aria-label="戻る">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <div class="ttl"><b id="lyrTitle"></b><small id="lyrArtist"></small></div>
+    <div class="zoom"><button id="zOut" aria-label="文字を小さく">小</button><button id="zIn" aria-label="文字を大きく">大</button></div>
+    <button class="icon-btn" id="lyrEdit" aria-label="編集">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>
+    </button>
+  </div>
+  <div id="lyrBody"><div id="lyrKey"></div><p id="lyrText"></p></div>
+</section>
+
+<div class="overlay" id="ov"></div>
+<div class="sheet" id="sheet"></div>
+
+<script>
+const KEY='utalist-v1';
+const $=s=>document.querySelector(s);
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let db;
+function load(){
+  try{db=JSON.parse(localStorage.getItem(KEY))}catch(e){db=null}
+  if(!db||!Array.isArray(db.tabs)){
+    db={tabs:[{id:uid(),name:'歌える'},{id:uid(),name:'練習中'}],songs:[],font:22,cur:0};
+  }
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){alert('保存できませんでした。ブラウザの容量設定を確認してください。')}}
+load();
+
+/* ---------- 描画 ---------- */
+const pages=$('#pages'),tabs=$('#tabs');
+function render(){
+  if(db.cur>=db.tabs.length)db.cur=Math.max(0,db.tabs.length-1);
+  pages.innerHTML=db.tabs.map(t=>{
+    const list=db.songs.filter(s=>s.tab===t.id);
+    return `<section class="page" data-tab="${t.id}">
+      <div class="page-title">${esc(t.name)}　${list.length}曲</div>
+      ${list.length?list.map(songHTML).join(''):`<div class="empty">まだ曲がありません。<br>右下の「曲を追加」から検索して登録できます。</div>`}
+    </section>`}).join('');
+  tabs.innerHTML=db.tabs.map((t,i)=>`<button class="tab${i===db.cur?' on':''}" data-i="${i}">${esc(t.name)}</button>`).join('')
+    +`<button class="tab add" id="addTab">＋ タブ</button>`;
+  pages.scrollLeft=db.cur*pages.clientWidth;
+}
+function songHTML(s){
+  const art=s.art?`<img src="${esc(s.art)}" alt="" loading="lazy">`:`<div class="noart"></div>`;
+  return `<div class="song">
+    <button class="meta" data-open="${s.id}" style="display:flex;gap:12px;align-items:center">
+      ${art}<span style="min-width:0"><div class="t">${esc(s.title)}${s.lyrics?'':'<span class="badge">歌詞なし</span>'}</div><div class="a">${esc(s.artist)}${s.key?'　キー '+esc(s.key):''}</div></span>
+    </button>
+    <button class="icon-btn" data-more="${s.id}" aria-label="操作">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+    </button></div>`;
+}
+function setCur(i,scroll=true){
+  db.cur=i;save();
+  tabs.querySelectorAll('.tab[data-i]').forEach(b=>b.classList.toggle('on',+b.dataset.i===i));
+  const on=tabs.querySelector('.tab.on');if(on)on.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'});
+  if(scroll)pages.scrollTo({left:i*pages.clientWidth,behavior:'smooth'});
+}
+let st;
+pages.addEventListener('scroll',()=>{clearTimeout(st);st=setTimeout(()=>{
+  const i=Math.round(pages.scrollLeft/pages.clientWidth);if(i!==db.cur)setCur(i,false);},80)});
+window.addEventListener('resize',()=>pages.scrollLeft=db.cur*pages.clientWidth);
+
+tabs.addEventListener('click',e=>{
+  const b=e.target.closest('.tab');if(!b)return;
+  if(b.id==='addTab'){const n=prompt('新しいタブの名前');if(n&&n.trim()){db.tabs.push({id:uid(),name:n.trim()});db.cur=db.tabs.length-1;save();render();}return}
+  const i=+b.dataset.i;
+  if(i===db.cur)tabMenu(i);else setCur(i);
+});
+pages.addEventListener('click',e=>{
+  const o=e.target.closest('[data-open]');if(o)return openLyrics(o.dataset.open);
+  const m=e.target.closest('[data-more]');if(m)songMenu(m.dataset.more);
+});
+
+/* ---------- シート ---------- */
+const sheet=$('#sheet'),ov=$('#ov');
+function openSheet(html){sheet.innerHTML=html;ov.classList.add('show');requestAnimationFrame(()=>sheet.classList.add('show'))}
+function closeSheet(){sheet.classList.remove('show');ov.classList.remove('show')}
+ov.onclick=closeSheet;
+
+function tabMenu(i){
+  const t=db.tabs[i];
+  openSheet(`<h2>「${esc(t.name)}」タブ</h2>
+    <button class="list-btn" id="tRen">名前を変更</button>
+    ${i>0?'<button class="list-btn" id="tL">左へ移動</button>':''}
+    ${i<db.tabs.length-1?'<button class="list-btn" id="tR">右へ移動</button>':''}
+    ${db.tabs.length>1?'<button class="list-btn btn danger" id="tDel" style="text-align:left">タブを削除（中の曲も削除）</button>':''}
+    <div class="row"><button class="btn" onclick="closeSheet()">閉じる</button></div>`);
+  $('#tRen').onclick=()=>{const n=prompt('タブの名前',t.name);if(n&&n.trim()){t.name=n.trim();save();render();}closeSheet()};
+  const sw=j=>{[db.tabs[i],db.tabs[j]]=[db.tabs[j],db.tabs[i]];db.cur=j;save();render();closeSheet()};
+  if($('#tL'))$('#tL').onclick=()=>sw(i-1);
+  if($('#tR'))$('#tR').onclick=()=>sw(i+1);
+  if($('#tDel'))$('#tDel').onclick=()=>{
+    const c=db.songs.filter(s=>s.tab===t.id).length;
+    if(confirm(`「${t.name}」と中の${c}曲を削除します。よろしいですか？`)){
+      db.songs=db.songs.filter(s=>s.tab!==t.id);db.tabs.splice(i,1);save();render();}
+    closeSheet()};
+}
+function songMenu(id){
+  const s=db.songs.find(x=>x.id===id);if(!s)return;
+  openSheet(`<h2>${esc(s.title)}</h2>
+    <div class="status">移動先のタブ</div>
+    ${db.tabs.filter(t=>t.id!==s.tab).map(t=>`<button class="list-btn" data-mv="${t.id}">${esc(t.name)} へ移動</button>`).join('')||'<div class="status">他のタブはありません</div>'}
+    <div class="row"><button class="btn danger" id="sDel">この曲を削除</button><button class="btn" onclick="closeSheet()">閉じる</button></div>`);
+  sheet.querySelectorAll('[data-mv]').forEach(b=>b.onclick=()=>{s.tab=b.dataset.mv;save();render();closeSheet()});
+  $('#sDel').onclick=()=>{if(confirm('削除しますか？')){db.songs=db.songs.filter(x=>x.id!==id);save();render();}closeSheet()};
+}
+
+/* ---------- 曲検索（iTunes Search API / JSONP・キー不要） ---------- */
+function itunes(term){
+  return new Promise((res,rej)=>{
+    const cb='itcb'+uid();const sc=document.createElement('script');
+    const timer=setTimeout(()=>{cleanup();rej(new Error('timeout'))},10000);
+    function cleanup(){clearTimeout(timer);delete window[cb];sc.remove()}
+    window[cb]=d=>{cleanup();res(d.results||[])};
+    sc.onerror=()=>{cleanup();rej(new Error('network'))};
+    sc.src=`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&country=JP&lang=ja_jp&media=music&entity=song&limit=25&callback=${cb}`;
+    document.body.appendChild(sc);
+  });
+}
+$('#fab').onclick=()=>{
+  const tab=db.tabs[db.cur];
+  openSheet(`<h2>「${esc(tab.name)}」に曲を追加</h2>
+    <div class="row"><input id="q" type="search" placeholder="曲名・歌手名で検索" enterkeyhint="search"><button class="btn primary" id="qGo" style="flex:none;width:80px">検索</button></div>
+    <div id="res"><div class="status">見つからない曲は下の「手入力で追加」から登録できます。</div></div>
+    <div class="row"><button class="btn" id="manual">手入力で追加</button><button class="btn" onclick="closeSheet()">閉じる</button></div>`);
+  const q=$('#q'),res=$('#res');let found=[];
+  const go=async()=>{
+    if(!q.value.trim())return;
+    res.innerHTML='<div class="status">検索中…</div>';
+    try{
+      found=await itunes(q.value.trim());
+      res.innerHTML=found.length?found.map((r,i)=>`<div class="song"><button class="meta" data-pick="${i}" style="display:flex;gap:12px;align-items:center">
+        <img src="${esc(r.artworkUrl100)}" alt="" loading="lazy"><span style="min-width:0"><div class="t">${esc(r.trackName)}</div><div class="a">${esc(r.artistName)}</div></span></button></div>`).join('')
+        :'<div class="status">該当する曲がありません。言葉を変えるか手入力で追加してください。</div>';
+    }catch(e){res.innerHTML='<div class="status">検索できませんでした。通信状況を確認して、少し待ってから再度お試しください（検索は1分に約20回まで）。</div>'}
+  };
+  $('#qGo').onclick=go;q.onkeydown=e=>{if(e.key==='Enter')go()};q.focus();
+  res.onclick=e=>{const b=e.target.closest('[data-pick]');if(!b)return;const r=found[+b.dataset.pick];
+    addSong(r.trackName,r.artistName,(r.artworkUrl100||'').replace('100x100','200x200'));b.closest('.song').style.opacity=.4;b.disabled=true;};
+  $('#manual').onclick=()=>{const t=prompt('曲名');if(!t||!t.trim())return;const a=prompt('歌手名（空欄可）')||'';addSong(t.trim(),a.trim(),'');closeSheet()};
+};
+function addSong(title,artist,art){
+  const tab=db.tabs[db.cur].id;
+  if(db.songs.some(s=>s.tab===tab&&s.title===title&&s.artist===artist)){toast('すでに登録済みです');return}
+  db.songs.push({id:uid(),tab,title,artist,art,lyrics:'',key:''});save();render();toast('追加しました');
+}
+function toast(m){const d=document.createElement('div');d.textContent=m;
+  d.style.cssText='position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 14px);transform:translateX(-50%);background:var(--cyan);color:#07202A;padding:8px 16px;border-radius:20px;font-weight:700;z-index:20';
+  document.body.appendChild(d);setTimeout(()=>d.remove(),1400)}
+
+/* ---------- 歌詞表示・編集 ---------- */
+let curSong=null,wake=null;
+function applyFont(){$('#lyrText').style.fontSize=db.font+'px'}
+async function openLyrics(id){
+  curSong=db.songs.find(s=>s.id===id);if(!curSong)return;
+  $('#lyrTitle').textContent=curSong.title;$('#lyrArtist').textContent=curSong.artist;
+  $('#lyrKey').textContent=curSong.key?'キー：'+curSong.key:'';
+  $('#lyrText').textContent=curSong.lyrics||'歌詞が未登録です。右上の鉛筆ボタンから登録できます。';
+  applyFont();$('#lyr').classList.add('show');$('#lyrBody').scrollTop=0;
+  history.pushState({lyr:1},'');
+  try{wake=await navigator.wakeLock?.request('screen')}catch(e){}
+  if(!curSong.lyrics)editLyrics();
+}
+function closeLyrics(){$('#lyr').classList.remove('show');curSong=null;try{wake?.release()}catch(e){}wake=null}
+$('#lyrBack').onclick=()=>history.back();
+window.addEventListener('popstate',()=>{if($('#lyr').classList.contains('show'))closeLyrics()});
+$('#zIn').onclick=()=>{db.font=Math.min(48,db.font+2);save();applyFont()};
+$('#zOut').onclick=()=>{db.font=Math.max(12,db.font-2);save();applyFont()};
+$('#lyrEdit').onclick=()=>editLyrics();
+
+function editLyrics(){
+  const s=curSong;if(!s)return;
+  const qs=encodeURIComponent(`${s.title} ${s.artist}`);
+  openSheet(`<h2>歌詞の登録</h2>
+    <div class="status">正規の歌詞サイトで歌詞をコピーし、下に貼り付けて保存します。保存先はこの端末内だけです。</div>
+    <div class="row">
+      <a class="btn" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="https://www.google.com/search?q=${encodeURIComponent('site:uta-net.com '+s.title+' '+s.artist)}">歌ネットで探す</a>
+      <a class="btn" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="https://www.google.com/search?q=${qs}+%E6%AD%8C%E8%A9%9E">歌詞を検索</a>
+    </div>
+    <div class="row"><button class="btn" id="paste">クリップボードから貼り付け</button></div>
+    <textarea id="lyrIn" placeholder="ここに歌詞を貼り付け">${esc(s.lyrics)}</textarea>
+    <div class="row"><input id="keyIn" placeholder="キー・メモ（例：-2、原曲キー）" value="${esc(s.key)}"></div>
+    <div class="row"><button class="btn" onclick="closeSheet()">キャンセル</button><button class="btn primary" id="lyrSave">保存</button></div>`);
+  $('#paste').onclick=async()=>{
+    try{const t=await navigator.clipboard.readText();if(t)$('#lyrIn').value=t;else toast('クリップボードが空です')}
+    catch(e){toast('入力欄を長押しして貼り付けてください')}
+  };
+  $('#lyrSave').onclick=()=>{
+    s.lyrics=$('#lyrIn').value.replace(/\r\n/g,'\n').trim();s.key=$('#keyIn').value.trim();save();render();
+    $('#lyrText').textContent=s.lyrics||'歌詞が未登録です。右上の鉛筆ボタンから登録できます。';
+    $('#lyrKey').textContent=s.key?'キー：'+s.key:'';closeSheet();toast('保存しました');
+  };
+}
+
+/* ---------- バックアップ ---------- */
+$('#menuBtn').onclick=()=>{
+  openSheet(`<h2>データ</h2>
+    <div class="status">データはこの端末のブラウザ内にだけ保存されています。機種変更やブラウザのデータ削除に備えて、ときどき書き出しておくと安心です。</div>
+    <button class="list-btn" id="exp">バックアップを書き出す</button>
+    <button class="list-btn" id="imp">バックアップから読み込む</button>
+    <input type="file" id="impFile" accept="application/json,.json" hidden>
+    <div class="row"><button class="btn" onclick="closeSheet()">閉じる</button></div>`);
+  $('#exp').onclick=()=>{
+    const b=new Blob([JSON.stringify(db)],{type:'application/json'});const a=document.createElement('a');
+    a.href=URL.createObjectURL(b);a.download=`utalist-${new Date().toISOString().slice(0,10)}.json`;a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  };
+  $('#imp').onclick=()=>$('#impFile').click();
+  $('#impFile').onchange=async e=>{
+    const f=e.target.files[0];if(!f)return;
+    try{const d=JSON.parse(await f.text());if(!Array.isArray(d.tabs)||!Array.isArray(d.songs))throw 0;
+      if(confirm('現在のデータを置き換えます。よろしいですか？')){db=d;db.cur=0;save();render();closeSheet();toast('読み込みました')}}
+    catch(err){alert('バックアップファイルの形式が正しくありません。')}
+  };
+};
+
+render();
+</script>
+</body>
+</html>
