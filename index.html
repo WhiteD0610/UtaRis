@@ -69,6 +69,20 @@ nav::-webkit-scrollbar{display:none}
 #lyrBody{flex:1;overflow-y:auto;padding:22px 20px calc(var(--safe-b) + 40px)}
 #lyrText{white-space:pre-wrap;line-height:1.9;font-weight:700;margin:0}
 #lyrKey{color:var(--cyan);font-size:14px;margin-bottom:14px}
+#score{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin-bottom:18px;font-size:14px}
+#score .hd{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+#score .hd b{flex:1;font-size:15px}
+#score .stats{display:flex;gap:10px;text-align:center}
+#score .stats div{flex:1;background:#1E1638;border-radius:12px;padding:8px 4px}
+#score .stats span{display:block;color:var(--sub);font-size:11px}
+#score .stats strong{font-size:19px;color:var(--cyan)}
+#score .hist{margin-top:10px;max-height:180px;overflow-y:auto}
+#score .hist div{display:flex;align-items:center;gap:8px;padding:5px 2px;border-top:1px solid var(--line);color:var(--sub)}
+#score .hist b{color:var(--text);font-size:15px;width:64px}
+#score .mini{padding:6px 12px;border-radius:14px;background:var(--pink);color:#2A0718;font-weight:800;font-size:13px}
+#score .link{color:var(--sub);font-size:12px;text-decoration:underline}
+.song .am{flex:none;position:relative;display:block;line-height:0;border-radius:10px}
+.song .am::after{content:"";position:absolute;right:-2px;bottom:-2px;width:16px;height:16px;border-radius:50%;background:var(--pink)}
 .zoom{display:flex;gap:2px}
 .zoom button{width:38px;height:38px;border-radius:10px;background:var(--surface);font-weight:800}
 textarea{min-height:40vh;line-height:1.7;resize:vertical}
@@ -100,7 +114,7 @@ textarea{min-height:40vh;line-height:1.7;resize:vertical}
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>
     </button>
   </div>
-  <div id="lyrBody"><div id="lyrKey"></div><div id="lyrLink"></div><p id="lyrText"></p></div>
+  <div id="lyrBody"><div id="lyrKey"></div><div id="score"></div><div id="lyrLink"></div><p id="lyrText"></p></div>
 </section>
 
 <div class="overlay" id="ov"></div>
@@ -139,8 +153,9 @@ function render(){
 function songHTML(s){
   const art=s.art?`<img src="${esc(s.art)}" alt="" loading="lazy">`:`<div class="noart"></div>`;
   return `<div class="song">
+    <a class="am" href="${esc(amUrl(s))}" target="_blank" rel="noopener" aria-label="Apple Musicで開く">${art}</a>
     <button class="meta" data-open="${s.id}" style="display:flex;gap:12px;align-items:center">
-      ${art}<span style="min-width:0"><div class="t">${esc(s.title)}${s.lyrics?'':s.url?'<span class="badge">リンク</span>':'<span class="badge">歌詞なし</span>'}</div><div class="a">${esc(s.artist)}${s.key?'　キー '+esc(s.key):''}</div></span>
+      <span style="min-width:0"><div class="t">${esc(s.title)}${s.lyrics?'':s.url?'<span class="badge">リンク</span>':'<span class="badge">歌詞なし</span>'}</div><div class="a">${esc(s.artist)}${s.key?'　キー '+esc(s.key):''}${scoreBadge(s)}</div></span>
     </button>
     <button class="icon-btn" data-more="${s.id}" aria-label="操作">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
@@ -219,7 +234,7 @@ async function getJSON(url,ms=15000){
   try{const r=await fetch(url,{signal:ac.signal});if(!r.ok)throw new Error('HTTP '+r.status);return await r.json()}
   finally{clearTimeout(t)}
 }
-const mapIT=d=>(d.results||[]).map(r=>({title:r.trackName,artist:r.artistName,art:(r.artworkUrl100||'').replace('100x100','200x200')}));
+const mapIT=d=>(d.results||[]).map(r=>({title:r.trackName,artist:r.artistName,art:(r.artworkUrl100||'').replace('100x100','200x200'),apple:r.trackViewUrl||''}));
 // 検索元を順番に試す（すべて無料・キー不要）
 const sources=[
   ['Apple',t=>getJSON(`https://itunes.apple.com/search?term=${encodeURIComponent(t)}&country=JP&media=music&entity=song&limit=25`).then(mapIT)],
@@ -257,13 +272,13 @@ $('#fab').onclick=()=>{
   };
   $('#qGo').onclick=go;q.onkeydown=e=>{if(e.key==='Enter')go()};q.focus();
   res.onclick=e=>{const b=e.target.closest('[data-pick]');if(!b)return;const r=found[+b.dataset.pick];
-    addSong(r.title,r.artist,r.art);b.closest('.song').style.opacity=.4;b.disabled=true;};
-  $('#manual').onclick=()=>{const t=prompt('曲名');if(!t||!t.trim())return;const a=prompt('歌手名（空欄可）')||'';addSong(t.trim(),a.trim(),'');closeSheet()};
+    addSong(r.title,r.artist,r.art,r.apple);b.closest('.song').style.opacity=.4;b.disabled=true;};
+  $('#manual').onclick=()=>{const t=prompt('曲名');if(!t||!t.trim())return;const a=prompt('歌手名（空欄可）')||'';addSong(t.trim(),a.trim(),'','');closeSheet()};
 };
-function addSong(title,artist,art){
+function addSong(title,artist,art,apple){
   const tab=db.tabs[db.cur].id;
   if(db.songs.some(s=>s.tab===tab&&s.title===title&&s.artist===artist)){toast('すでに登録済みです');return}
-  db.songs.push({id:uid(),tab,title,artist,art,lyrics:'',url:'',key:''});save();render();toast('追加しました');
+  db.songs.push({id:uid(),tab,title,artist,art,apple:apple||'',lyrics:'',url:'',key:'',scores:[]});save();render();toast('追加しました');
 }
 function toast(m){const d=document.createElement('div');d.textContent=m;
   d.style.cssText='position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 14px);transform:translateX(-50%);background:var(--cyan);color:#07202A;padding:8px 16px;border-radius:20px;font-weight:700;z-index:20';
@@ -274,10 +289,48 @@ let curSong=null,wake=null;
 function applyFont(){$('#lyrText').style.fontSize=db.font+'px'}
 const EMPTY='歌詞が未登録です。右上の鉛筆ボタンから、歌詞ページのURLか手入力の歌詞を登録できます。';
 const isUrl=v=>/^https?:\/\/\S+$/i.test(v||'');
+const amUrl=s=>s.apple||`https://music.apple.com/jp/search?term=${encodeURIComponent(jlClean(s.title)+' '+jlClean(s.artist))}`;
+function stats(s){
+  const v=(s.scores||[]).map(x=>x.v);
+  if(!v.length)return null;
+  return {n:v.length,max:Math.max(...v),min:Math.min(...v),avg:v.reduce((a,b)=>a+b,0)/v.length};
+}
+const fmt=n=>(Math.round(n*1000)/1000).toFixed(3).replace(/\.?0+$/,'');
+function scoreBadge(s){
+  if(db.hideScores)return '';
+  const st=stats(s);return st?`　最高 ${fmt(st.max)}`:'';
+}
+function showScore(s){
+  const box=$('#score'),st=stats(s);
+  if(db.hideScores){
+    box.innerHTML=`<div class="hd"><b>得点</b><button class="link" id="scShow">表示する</button></div>`;
+    $('#scShow').onclick=()=>{db.hideScores=false;save();render();showScore(s)};return;
+  }
+  box.innerHTML=`<div class="hd"><b>得点${st?`（${st.n}回）`:''}</b>
+      <button class="link" id="scHide">非表示</button><button class="mini" id="scAdd">＋ 記録</button></div>
+    ${st?`<div class="stats">
+      <div><span>最高</span><strong>${fmt(st.max)}</strong></div>
+      <div><span>平均</span><strong>${fmt(st.avg)}</strong></div>
+      <div><span>最低</span><strong>${fmt(st.min)}</strong></div></div>
+      <div class="hist">${s.scores.map((x,i)=>`<div><b>${fmt(x.v)}</b><span style="flex:1">${esc(x.d)}</span><button class="link" data-sc="${i}">削除</button></div>`).join('')}</div>`
+    :'<div style="color:var(--sub)">まだ記録がありません。歌い終わったら「＋ 記録」で点数を残せます。</div>'}`;
+  $('#scAdd').onclick=()=>{
+    const v=prompt('点数を入力（例：87.526）');if(v===null)return;
+    const n=parseFloat(String(v).replace(/[^0-9.]/g,''));
+    if(!isFinite(n)||n<0||n>100){toast('0〜100の数字を入力してください');return}
+    (s.scores=s.scores||[]).unshift({v:n,d:new Date().toLocaleDateString('ja-JP')});
+    save();render();showScore(s);toast('記録しました');
+  };
+  $('#scHide').onclick=()=>{db.hideScores=true;save();render();showScore(s)};
+  box.querySelectorAll('[data-sc]').forEach(b=>b.onclick=()=>{
+    if(confirm('この記録を削除しますか？')){s.scores.splice(+b.dataset.sc,1);save();render();showScore(s)}});
+}
 function showLyrics(s){
+  showScore(s);
   $('#lyrKey').textContent=s.key?'キー：'+s.key:'';
-  $('#lyrLink').innerHTML=isUrl(s.url)
-    ?`<div class="row" style="margin:0 0 18px"><a class="btn primary" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="${esc(s.url)}">歌詞サイトで開く</a></div>`:'';
+  $('#lyrLink').innerHTML=`<div class="row" style="margin:0 0 18px">
+    ${isUrl(s.url)?`<a class="btn primary" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="${esc(s.url)}">歌詞サイトで開く</a>`:''}
+    <a class="btn" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="${esc(amUrl(s))}">Apple Musicで開く</a></div>`;
   $('#lyrText').textContent=s.lyrics||(isUrl(s.url)?'':EMPTY);
 }
 async function openLyrics(id){
@@ -323,10 +376,12 @@ function editLyrics(){
 $('#menuBtn').onclick=()=>{
   openSheet(`<h2>データ</h2>
     <div class="status">データはこの端末のブラウザ内にだけ保存されています。機種変更やブラウザのデータ削除に備えて、ときどき書き出しておくと安心です。</div>
+    <button class="list-btn" id="tgl">得点を${db.hideScores?'表示':'すべて非表示'}にする</button>
     <button class="list-btn" id="exp">バックアップを書き出す</button>
     <button class="list-btn" id="imp">バックアップから読み込む</button>
     <input type="file" id="impFile" accept="application/json,.json" hidden>
     <div class="row"><button class="btn" onclick="closeSheet()">閉じる</button></div>`);
+  $('#tgl').onclick=()=>{db.hideScores=!db.hideScores;save();render();if(curSong)showScore(curSong);closeSheet();toast(db.hideScores?'得点を非表示にしました':'得点を表示しました')};
   $('#exp').onclick=()=>{
     const b=new Blob([JSON.stringify(db)],{type:'application/json'});const a=document.createElement('a');
     a.href=URL.createObjectURL(b);a.download=`utalist-${new Date().toISOString().slice(0,10)}.json`;a.click();
