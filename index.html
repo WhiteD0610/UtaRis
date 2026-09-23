@@ -81,6 +81,7 @@ nav::-webkit-scrollbar{display:none}
 #score .hist b{color:var(--text);font-size:15px;width:64px}
 #score .mini{padding:6px 12px;border-radius:14px;background:var(--pink);color:#2A0718;font-weight:800;font-size:13px}
 #score .link{color:var(--sub);font-size:12px;text-decoration:underline}
+.song .avg{flex:none;font-size:17px;font-weight:800;color:var(--cyan);min-width:52px;text-align:right}
 .song .am{flex:none;position:relative;display:block;line-height:0;border-radius:10px}
 .song .am::after{content:"";position:absolute;right:-2px;bottom:-2px;width:16px;height:16px;border-radius:50%;background:var(--pink)}
 .zoom{display:flex;gap:2px}
@@ -155,8 +156,9 @@ function songHTML(s){
   return `<div class="song">
     <a class="am" href="${esc(amUrl(s))}" target="_blank" rel="noopener" aria-label="Apple Musicで開く">${art}</a>
     <button class="meta" data-open="${s.id}" style="display:flex;gap:12px;align-items:center">
-      <span style="min-width:0"><div class="t">${esc(s.title)}${s.lyrics?'':s.url?'<span class="badge">リンク</span>':'<span class="badge">歌詞なし</span>'}</div><div class="a">${esc(s.artist)}${s.key?'　キー '+esc(s.key):''}${scoreBadge(s)}</div></span>
+      <span style="min-width:0"><div class="t">${esc(s.title)}${s.lyrics?'':s.url?'<span class="badge">リンク</span>':'<span class="badge">歌詞なし</span>'}</div><div class="a">${esc(s.artist)}${s.key?'　キー '+esc(s.key):''}</div></span>
     </button>
+    ${scoreBadge(s)}
     <button class="icon-btn" data-more="${s.id}" aria-label="操作">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
     </button></div>`;
@@ -298,7 +300,21 @@ function stats(s){
 const fmt=n=>(Math.round(n*1000)/1000).toFixed(3).replace(/\.?0+$/,'');
 function scoreBadge(s){
   if(db.hideScores)return '';
-  const st=stats(s);return st?`　最高 ${fmt(st.max)}`:'';
+  const st=stats(s);return st?`<span class="avg">${fmt(st.avg)}</span>`:'';
+}
+function addScore(s){
+  openSheet(`<h2>点数を記録</h2>
+    <div class="status">${esc(s.title)}</div>
+    <div class="row"><input id="scIn" type="number" inputmode="decimal" step="0.001" min="0" max="100" placeholder="例：87.526"></div>
+    <div class="row"><button class="btn" onclick="closeSheet()">キャンセル</button><button class="btn primary" id="scSave">記録する</button></div>`);
+  const inp=$('#scIn');setTimeout(()=>inp.focus(),80);
+  const done=()=>{
+    const n=parseFloat(inp.value);
+    if(!isFinite(n)||n<0||n>100){toast('0〜100の数字を入力してください');return}
+    (s.scores=s.scores||[]).unshift({v:n,d:new Date().toLocaleDateString('ja-JP')});
+    save();render();showScore(s);closeSheet();toast('記録しました');
+  };
+  $('#scSave').onclick=done;inp.onkeydown=e=>{if(e.key==='Enter')done()};
 }
 function showScore(s){
   const box=$('#score'),st=stats(s);
@@ -314,13 +330,7 @@ function showScore(s){
       <div><span>最低</span><strong>${fmt(st.min)}</strong></div></div>
       <div class="hist">${s.scores.map((x,i)=>`<div><b>${fmt(x.v)}</b><span style="flex:1">${esc(x.d)}</span><button class="link" data-sc="${i}">削除</button></div>`).join('')}</div>`
     :'<div style="color:var(--sub)">まだ記録がありません。歌い終わったら「＋ 記録」で点数を残せます。</div>'}`;
-  $('#scAdd').onclick=()=>{
-    const v=prompt('点数を入力（例：87.526）');if(v===null)return;
-    const n=parseFloat(String(v).replace(/[^0-9.]/g,''));
-    if(!isFinite(n)||n<0||n>100){toast('0〜100の数字を入力してください');return}
-    (s.scores=s.scores||[]).unshift({v:n,d:new Date().toLocaleDateString('ja-JP')});
-    save();render();showScore(s);toast('記録しました');
-  };
+  $('#scAdd').onclick=()=>addScore(s);
   $('#scHide').onclick=()=>{db.hideScores=true;save();render();showScore(s)};
   box.querySelectorAll('[data-sc]').forEach(b=>b.onclick=()=>{
     if(confirm('この記録を削除しますか？')){s.scores.splice(+b.dataset.sc,1);save();render();showScore(s)}});
@@ -360,14 +370,16 @@ function editLyrics(){
     <div class="row"><a class="btn" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="${esc(jlUrl(s.title,s.artist))}">J-Lyricで検索（曲名＋歌手）</a></div>
     <div class="row"><a class="btn" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="${esc(jlUrl(s.title,''))}">J-Lyricで検索（曲名のみ）</a></div>
     <div class="row"><input id="urlIn" type="url" inputmode="url" placeholder="https://j-lyric.net/artist/…" value="${esc(s.url||'')}"></div>
-    <div class="status" style="margin-top:16px"><b>② 歌詞を手入力（任意）</b><br>CDの歌詞カードなど、手元の資料や覚えている歌詞から入力します。歌詞サイトからのコピーや書き写しは、サイトの規約で禁止されているので使わないでください。</div>
+    <div class="status" style="margin-top:16px"><b>② Apple MusicのURL（任意）</b><br>Apple Musicでこの曲を開き、共有メニューの「リンクをコピー」で得たURLを貼り付けます。未入力なら検索結果が開きます。</div>
+    <div class="row"><input id="amIn" type="url" inputmode="url" placeholder="https://music.apple.com/jp/album/…" value="${esc(s.apple||'')}"></div>
+    <div class="status" style="margin-top:16px"><b>③ 歌詞を手入力（任意）</b><br>CDの歌詞カードなど、手元の資料や覚えている歌詞から入力します。歌詞サイトからのコピーや書き写しは、サイトの規約で禁止されているので使わないでください。</div>
     <textarea id="lyrIn" placeholder="歌詞を入力">${esc(s.lyrics)}</textarea>
     <div class="row"><input id="keyIn" placeholder="キー・メモ（例：-2、原曲キー）" value="${esc(s.key)}"></div>
     <div class="row"><button class="btn" onclick="closeSheet()">キャンセル</button><button class="btn primary" id="lyrSave">保存</button></div>`);
   $('#lyrSave').onclick=()=>{
-    const u=$('#urlIn').value.trim();
-    if(u&&!isUrl(u)){toast('URLは https:// から入力してください');return}
-    s.url=u;s.lyrics=$('#lyrIn').value.replace(/\r\n/g,'\n').trim();s.key=$('#keyIn').value.trim();
+    const u=$('#urlIn').value.trim(),am=$('#amIn').value.trim();
+    if((u&&!isUrl(u))||(am&&!isUrl(am))){toast('URLは https:// から入力してください');return}
+    s.url=u;s.apple=am;s.lyrics=$('#lyrIn').value.replace(/\r\n/g,'\n').trim();s.key=$('#keyIn').value.trim();
     save();render();showLyrics(s);closeSheet();toast('保存しました');
   };
 }
